@@ -1,0 +1,30 @@
+{
+  "_comment": "COMSOLを使わずGAの動作だけを確認する設定。既知最適点 ew=12, eg=4, el=45 付近へ寄れば正常。",
+  "mode": "mock",
+  "objective": "maximize",
+  "variables": [
+    { "name": "ew", "min": 3.0,  "max": 20.0, "unit": "um", "meaning": "電極幅" },
+    { "name": "eg", "min": 2.0,  "max": 15.0, "unit": "um", "meaning": "電極間隔" },
+    { "name": "el", "min": 15.0, "max": 60.0, "unit": "um", "meaning": "電極長さ" }
+  ],
+  "ga": {
+    "method": "sbx_ga",
+    "population_size": 10,
+    "generations": 5,
+    "elite": 2,
+    "tournament_size": 2,
+    "crossover_rate": 0.9,
+    "mutation_rate": null,
+    "sbx_eta": 15.0,
+    "polynomial_mutation_eta": 20.0,
+    "blx_alpha": 0.5,
+    "gauss_sigma_ratio": 0.1,
+    "seed": 12345
+  },
+  "run": {
+    "output_root": "runs",
+    "failure_fitness": -1e30,
+    "keep_job_dirs": true,
+    "round_digits": 6
+  }
+}

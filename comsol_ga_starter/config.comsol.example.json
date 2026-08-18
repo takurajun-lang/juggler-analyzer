@@ -1,0 +1,53 @@
+{
+  "_comment": "Windows COMSOL 用の設定例。",
+  "mode": "comsol",
+  "objective": "maximize",
+  "_objective_note": "初期実装では Smin を最大化する単一目的とする。",
+
+  "variables": [
+    { "name": "ew", "min": 3.0,  "max": 20.0, "unit": "um", "meaning": "電極幅" },
+    { "name": "eg", "min": 2.0,  "max": 15.0, "unit": "um", "meaning": "電極間隔" },
+    { "name": "el", "min": 15.0, "max": 60.0, "unit": "um", "meaning": "電極長さ" }
+  ],
+  "_variables_note": "上下限は動作確認用の初期値。製造制約・細胞径・計算領域・メッシュ品質を見て決め直すこと。",
+
+  "comsol": {
+    "executable": "C:\\Program Files\\COMSOL\\COMSOL64\\Multiphysics\\bin\\win64\\comsolbatch.exe",
+    "_executable_note": "Windowsでは comsolbatch.exe を直接呼ぶため launcher_args は空にする。",
+    "launcher_args": [],
+    "inputfile": "C:\\Users\\USER\\work\\ga_electrode_base.mph",
+    "study": "std1",
+    "extra_args": ["-nosave"],
+    "np": 1,
+    "timeout_sec": 7200,
+    "fitness_file": "fitness.csv",
+    "copy_inputfile_to_job": false,
+    "fitness_parser": {
+      "mode": "last_numeric",
+      "column": -1,
+      "delimiter": ",",
+      "comment_prefixes": ["%", "#"]
+    }
+  },
+
+  "ga": {
+    "method": "sbx_ga",
+    "population_size": 10,
+    "generations": 0,
+    "_generations_note": "最初は 0（初期10個体のみ＝FEM10回）で配線を確認し、成功後に 1 → 3 と増やす。",
+    "elite": 2,
+    "tournament_size": 2,
+    "crossover_rate": 0.9,
+    "mutation_rate": null,
+    "sbx_eta": 15.0,
+    "polynomial_mutation_eta": 20.0,
+    "seed": 12345
+  },
+
+  "run": {
+    "output_root": "runs",
+    "failure_fitness": -1e30,
+    "keep_job_dirs": true,
+    "round_digits": 6
+  }
+}
