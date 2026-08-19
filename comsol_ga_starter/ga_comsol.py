@@ -309,8 +309,9 @@ def read_eis_sweep_csv(path: str, parser: dict) -> float:
       peak  = S(f) の周波数方向の最大値（cellxごと）
       Smin  = peak の cellx方向の最小値（cell_on=1 の行のみが対象）
 
-    baseline（Z_baseline）は cell_on=0 の行から周波数ごとに求める
-    （cell_on=0 では cellx を変えても物理的に同一のため cellx は無視する）。
+    baseline（Z_baseline）は、同じ cellx・同じ freq の cell_on=0 行から求める
+    （cell_on=0 でも cellx ごとにメッシュ形状が異なるため、周波数だけでなく
+    cellx も揃えて比較することで、メッシュ差に起因する数値誤差を打ち消す）。
     """
     if not os.path.isfile(path):
         raise FileNotFoundError("EISスイープファイルが見つかりません: %s" % path)
@@ -322,6 +323,7 @@ def read_eis_sweep_csv(path: str, parser: dict) -> float:
     delim = parser.get("delimiter", ",")
     prefixes = tuple(parser.get("comment_prefixes", ["%", "#"]))
     freq_round = int(parser.get("freq_round_digits", 6))
+    cellx_round = int(parser.get("cellx_round_digits", 12))
 
     rows = []
     with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -347,7 +349,8 @@ def read_eis_sweep_csv(path: str, parser: dict) -> float:
     baseline = {}
     for cell_on, cellx, freq, z in rows:
         if round(cell_on) == 0:
-            baseline[round(freq, freq_round)] = z
+            key = (round(cellx, cellx_round), round(freq, freq_round))
+            baseline[key] = z
 
     if not baseline:
         raise ValueError("cell_on=0（ベースライン）の行が見つかりません: %s" % path)
@@ -356,11 +359,12 @@ def read_eis_sweep_csv(path: str, parser: dict) -> float:
     for cell_on, cellx, freq, z in rows:
         if round(cell_on) != 1:
             continue
-        zbase = baseline.get(round(freq, freq_round))
+        key = (round(cellx, cellx_round), round(freq, freq_round))
+        zbase = baseline.get(key)
         if zbase is None or abs(zbase) == 0:
             continue
         s = abs(z - zbase) / abs(zbase)
-        cx_key = round(cellx, 9)
+        cx_key = round(cellx, cellx_round)
         if cx_key not in peak_by_cellx or s > peak_by_cellx[cx_key]:
             peak_by_cellx[cx_key] = s
 

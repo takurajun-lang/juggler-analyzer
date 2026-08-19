@@ -30,7 +30,7 @@ def _parse_complex_token(token: str):
 
 def read_eis_sweep_csv(path, delimiter="\t", comment_prefixes=("%", "#"),
                         col_cell_on=0, col_cellx=1, col_freq=2, col_z=3,
-                        freq_round_digits=6):
+                        freq_round_digits=6, cellx_round_digits=12):
     if not os.path.isfile(path):
         raise FileNotFoundError("ファイルが見つかりません: %s" % path)
 
@@ -71,9 +71,10 @@ def read_eis_sweep_csv(path, delimiter="\t", comment_prefixes=("%", "#"),
     baseline = {}
     for cell_on, cellx, freq, z in rows:
         if round(cell_on) == 0:
-            baseline[round(freq, freq_round_digits)] = z
+            key = (round(cellx, cellx_round_digits), round(freq, freq_round_digits))
+            baseline[key] = z
 
-    print("ベースライン(cell_on=0)の周波数点数: %d" % len(baseline))
+    print("ベースライン(cell_on=0)の(位置,周波数)組み合わせ数: %d" % len(baseline))
 
     if not baseline:
         raise ValueError("cell_on=0（ベースライン）の行が見つかりません: %s" % path)
@@ -82,11 +83,12 @@ def read_eis_sweep_csv(path, delimiter="\t", comment_prefixes=("%", "#"),
     for cell_on, cellx, freq, z in rows:
         if round(cell_on) != 1:
             continue
-        zbase = baseline.get(round(freq, freq_round_digits))
+        key = (round(cellx, cellx_round_digits), round(freq, freq_round_digits))
+        zbase = baseline.get(key)
         if zbase is None or abs(zbase) == 0:
             continue
         s = abs(z - zbase) / abs(zbase)
-        cx_key = round(cellx, 9)
+        cx_key = round(cellx, cellx_round_digits)
         if cx_key not in peak_by_cellx or s > peak_by_cellx[cx_key]:
             peak_by_cellx[cx_key] = s
 
