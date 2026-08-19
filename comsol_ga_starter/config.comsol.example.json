@@ -23,10 +23,15 @@
     "fitness_file": "fitness.csv",
     "copy_inputfile_to_job": false,
     "fitness_parser": {
-      "mode": "last_numeric",
-      "column": -1,
-      "delimiter": ",",
-      "comment_prefixes": ["%", "#"]
+      "mode": "eis_smin_sweep",
+      "_mode_note": "cell_on,cellx,freq,Z(複素数) の生データ行から Smin を計算する。列番号はCOMSOLのExport列順に合わせる。",
+      "col_cell_on": 0,
+      "col_cellx": 1,
+      "col_freq": 2,
+      "col_z": 3,
+      "delimiter": "\t",
+      "comment_prefixes": ["%", "#"],
+      "freq_round_digits": 6
     }
   },
 
