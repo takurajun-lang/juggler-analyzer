@@ -285,17 +285,106 @@ def _to_float(token: str):
             return None
 
 
+def _parse_complex_token(token: str):
+    """COMSOLが書き出す複素数表記（例: 1.23e-5+4.56e-6i）をPythonのcomplexに変換する。"""
+    t = token.strip().strip('"').strip("'")
+    if not t:
+        return None
+    if t and t[-1] in ("i", "I"):
+        t = t[:-1] + "j"
+    try:
+        return complex(t)
+    except ValueError:
+        try:
+            return complex(float(t), 0.0)
+        except ValueError:
+            return None
+
+
+def read_eis_sweep_csv(path: str, parser: dict) -> float:
+    """cell_on, cellx, freq, Z(複素数) の生データ行から Smin を計算する。
+
+    定義:
+      S(f)  = |Z_cell(f) - Z_baseline(f)| / |Z_baseline(f)|
+      peak  = S(f) の周波数方向の最大値（cellxごと）
+      Smin  = peak の cellx方向の最小値（cell_on=1 の行のみが対象）
+
+    baseline（Z_baseline）は cell_on=0 の行から周波数ごとに求める
+    （cell_on=0 では cellx を変えても物理的に同一のため cellx は無視する）。
+    """
+    if not os.path.isfile(path):
+        raise FileNotFoundError("EISスイープファイルが見つかりません: %s" % path)
+
+    col_cell_on = int(parser.get("col_cell_on", 0))
+    col_cellx = int(parser.get("col_cellx", 1))
+    col_freq = int(parser.get("col_freq", 2))
+    col_z = int(parser.get("col_z", 3))
+    delim = parser.get("delimiter", ",")
+    prefixes = tuple(parser.get("comment_prefixes", ["%", "#"]))
+    freq_round = int(parser.get("freq_round_digits", 6))
+
+    rows = []
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith(prefixes):
+                continue
+            cells = line.split(delim)
+            try:
+                cell_on = float(cells[col_cell_on])
+                cellx = float(cells[col_cellx])
+                freq = float(cells[col_freq])
+            except (IndexError, ValueError):
+                continue
+            z = _parse_complex_token(cells[col_z]) if len(cells) > col_z else None
+            if z is None:
+                continue
+            rows.append((cell_on, cellx, freq, z))
+
+    if not rows:
+        raise ValueError("EISスイープに数値データがありません: %s" % path)
+
+    baseline = {}
+    for cell_on, cellx, freq, z in rows:
+        if round(cell_on) == 0:
+            baseline[round(freq, freq_round)] = z
+
+    if not baseline:
+        raise ValueError("cell_on=0（ベースライン）の行が見つかりません: %s" % path)
+
+    peak_by_cellx = {}
+    for cell_on, cellx, freq, z in rows:
+        if round(cell_on) != 1:
+            continue
+        zbase = baseline.get(round(freq, freq_round))
+        if zbase is None or abs(zbase) == 0:
+            continue
+        s = abs(z - zbase) / abs(zbase)
+        cx_key = round(cellx, 9)
+        if cx_key not in peak_by_cellx or s > peak_by_cellx[cx_key]:
+            peak_by_cellx[cx_key] = s
+
+    if not peak_by_cellx:
+        raise ValueError("cell_on=1 の行が見つかりません: %s" % path)
+
+    return min(peak_by_cellx.values())
+
+
 def read_fitness_csv(path: str, parser: dict) -> float:
     """COMSOL が書き出した CSV からスカラーの目的値を1つ取り出す。
 
     mode:
-      last_numeric : 数値を含む最後の行の指定列
-      column_max   : 指定列の最大値
-      column_min   : 指定列の最小値
-      column_last  : 指定列の最後の値（last_numeric と同義だが意図を明示）
+      last_numeric   : 数値を含む最後の行の指定列
+      column_max     : 指定列の最大値
+      column_min     : 指定列の最小値
+      column_last    : 指定列の最後の値（last_numeric と同義だが意図を明示）
+      eis_smin_sweep : cell_on, cellx, freq, Z(複素数) の生データ行から Smin を計算
     """
     if not os.path.isfile(path):
         raise FileNotFoundError("fitness ファイルが見つかりません: %s" % path)
+
+    if parser.get("mode") == "eis_smin_sweep":
+        return read_eis_sweep_csv(path, parser)
 
     prefixes = tuple(parser.get("comment_prefixes", ["%", "#"]))
     delim = parser.get("delimiter", ",")
